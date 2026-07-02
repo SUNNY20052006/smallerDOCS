@@ -2,6 +2,14 @@
 title smallerDOCS Installer
 setlocal enabledelayedexpansion
 
+rem Self-elevate to administrator if not already running as admin
+net session >nul 2>&1
+if errorlevel 1 (
+    echo Requesting administrator privileges...
+    powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -Verb RunAs -Wait"
+    exit /b %errorlevel%
+)
+
 set "SCRIPT_DIR=%~dp0"
 set "LOG_FILE=%SCRIPT_DIR%install.log"
 

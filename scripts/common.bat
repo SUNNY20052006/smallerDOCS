@@ -301,7 +301,7 @@ if not exist "!NODE_INSTALLER!" (
 
 call :print_info "Installing Node.js !NODE_LATEST_VER!..."
 
-start /wait "" "!NODE_INSTALLER!" /quiet
+msiexec /i "!NODE_INSTALLER!" /qn /norestart
 set "INSTALL_RESULT=!errorlevel!"
 
 if exist "!NODE_INSTALLER!" del /f /q "!NODE_INSTALLER!" >nul 2>&1
@@ -313,29 +313,31 @@ if !INSTALL_RESULT! neq 0 (
 
 call :print_info "Node.js !NODE_LATEST_VER! installed. Verifying..."
 
-if exist "%ProgramFiles%\nodejs\node.exe" (
-    set "PATH=%ProgramFiles%\nodejs;%PATH%"
-    call :print_ok "Node.js !NODE_LATEST_VER! installed"
-    endlocal & set "PATH=%PATH%"
-    exit /b 0
-)
+rem Add standard install paths to current session PATH
+if exist "%ProgramFiles%\nodejs\" set "PATH=%ProgramFiles%\nodejs;%PATH%"
+if exist "%ProgramFiles(x86)%\nodejs\" set "PATH=%ProgramFiles(x86)%\nodejs;%PATH%"
+if exist "!AppData!\Programs\nodejs\" set "PATH=!AppData!\Programs\nodejs;!PATH!"
 
-if exist "%ProgramFiles(x86)%\nodejs\node.exe" (
-    set "PATH=%ProgramFiles(x86)%\nodejs;%PATH%"
-    call :print_ok "Node.js !NODE_LATEST_VER! installed"
-    endlocal & set "PATH=%PATH%"
-    exit /b 0
+rem Verify node is accessible
+where node >nul 2>&1
+if errorlevel 1 (
+    call :print_err "node command not found after installation."
+    endlocal & exit /b 1
 )
+for /f "tokens=*" %%v in ('node --version') do set "NODE_VERSION=%%v"
+call :print_ok "Node.js !NODE_VERSION! verified"
 
-if exist "!AppData!\Programs\nodejs\node.exe" (
-    set "PATH=!AppData!\Programs\nodejs;!PATH!"
-    call :print_ok "Node.js !NODE_LATEST_VER! installed"
-    endlocal & set "PATH=%PATH%"
-    exit /b 0
+rem Verify npm is accessible
+where npm >nul 2>&1
+if errorlevel 1 (
+    call :print_err "npm command not found after Node.js installation."
+    endlocal & exit /b 1
 )
+for /f "tokens=*" %%v in ('npm --version') do set "NPM_VERSION=%%v"
+call :print_ok "npm !NPM_VERSION! verified"
 
-call :print_err "Could not locate Node.js after installation."
-endlocal & exit /b 1
+endlocal & set "PATH=%PATH%" & set "NODE_CMD=node"
+exit /b 0
 
 rem === CHECK_PORT ============================================
 rem Returns: errorlevel 0 if port is in use, 1 if free
