@@ -135,22 +135,12 @@ rem Modifies: PATH (adds Python dirs)
 :install_python
 setlocal enabledelayedexpansion
 
-rem Determine latest Python 3.12+ version
-call :print_info "Determining latest Python version..."
-set "PY_LATEST_VER="
+rem Fixed known-good Python version
+set "PY_LATEST_VER=3.12.5"
+set "PYTHON_URL=https://www.python.org/ftp/python/3.12.5/python-3.12.5-amd64.exe"
+set "PYTHON_INSTALLER=%TEMP%\python-installer.exe"
 
-for /f "delims=" %%v in ('powershell -NoProfile -Command ^
-    "try { $p = Invoke-WebRequest 'https://www.python.org/ftp/python/' -UseBasicParsing -TimeoutSec 10; " ^
-    "$l = $p.Links ^| Where-Object { $_.href -match '^3\.(1[2-9]|[2-9]\d)\.\d+/$' } ^| ForEach-Object { $_.href -replace '/$','' }; " ^
-    "$l ^| Sort-Object { [Version]$_ } -Descending ^| Select-Object -First 1 } catch { Write-Output '3.12.5' }"') do set "PY_LATEST_VER=%%v"
-
-if not defined PY_LATEST_VER set "PY_LATEST_VER=3.12.5"
-
-call :log "Latest Python version: !PY_LATEST_VER!"
-
-set "PYTHON_URL=https://www.python.org/ftp/python/!PY_LATEST_VER!/python-!PY_LATEST_VER!-amd64.exe"
-set "PYTHON_INSTALLER=%TEMP%\python-installer-!PY_LATEST_VER!.exe"
-
+call :log "Python version: !PY_LATEST_VER!"
 call :log "Download URL: !PYTHON_URL!"
 call :print_info "Downloading Python !PY_LATEST_VER!..."
 
@@ -287,22 +277,12 @@ rem Modifies: PATH (adds Node.js dir)
 :install_node
 setlocal enabledelayedexpansion
 
-rem Determine latest Node.js LTS version
-call :print_info "Determining latest Node.js LTS version..."
-set "NODE_LATEST_VER="
+rem Fixed known-good Node.js LTS version
+set "NODE_LATEST_VER=20.17.0"
+set "NODE_URL=https://nodejs.org/dist/v20.17.0/node-v20.17.0-x64.msi"
+set "NODE_INSTALLER=%TEMP%\node-installer.msi"
 
-for /f "delims=" %%v in ('powershell -NoProfile -Command ^
-    "try { $d = Invoke-RestMethod 'https://nodejs.org/dist/index.json' -TimeoutSec 10; " ^
-    "$l = $d ^| Where-Object { $_.lts } ^| Select-Object -First 1; " ^
-    "$v = $l.version -replace '^v',''; if ($v) { Write-Output $v } else { Write-Output '20.17.0' } } catch { Write-Output '20.17.0' }"') do set "NODE_LATEST_VER=%%v"
-
-if not defined NODE_LATEST_VER set "NODE_LATEST_VER=20.17.0"
-
-call :log "Latest Node.js LTS version: !NODE_LATEST_VER!"
-
-set "NODE_URL=https://nodejs.org/dist/v!NODE_LATEST_VER!/node-v!NODE_LATEST_VER!-x64.msi"
-set "NODE_INSTALLER=%TEMP%\node-installer-!NODE_LATEST_VER!.msi"
-
+call :log "Node.js version: !NODE_LATEST_VER!"
 call :log "Download URL: !NODE_URL!"
 call :print_info "Downloading Node.js !NODE_LATEST_VER!..."
 
