@@ -61,6 +61,7 @@ rem Returns: errorlevel 0 if connected, 1 otherwise
 call :print_info "Checking internet connection..."
 ping -n 1 -w 3000 8.8.8.8 >nul 2>&1
 if errorlevel 1 ping -n 1 -w 3000 1.1.1.1 >nul 2>&1
+if errorlevel 1 ping -n 1 -w 3000 google.com >nul 2>&1
 if errorlevel 1 (
     call :print_err "No internet connection detected."
     exit /b 1
@@ -73,7 +74,6 @@ rem Returns: errorlevel 0 if Python 3.12+ found, 1 otherwise
 rem Sets: PYTHON_CMD to "python" or "py"
 :require_python
 setlocal enabledelayedexpansion
-call :print_info "Checking Python installation..."
 set "PYTHON_CMD="
 
 python --version >nul 2>&1
@@ -82,74 +82,280 @@ if not defined PYTHON_CMD (
     py --version >nul 2>&1
     if not errorlevel 1 set "PYTHON_CMD=py"
 )
-if not defined PYTHON_CMD (
-    call :print_err "Python is not installed."
-    call :log "  Visit https://www.python.org/downloads/ to install Python 3.12+"
-    call :log "  IMPORTANT: Check 'Add Python to PATH' during installation"
+if not defined PYTHON_CMD endlocal & exit /b 1
+
+for /f "tokens=2 delims= " %%v in ('!PYTHON_CMD! --version 2^>^&1') do set "PY_VERSION=%%v"
+if not defined PY_VERSION endlocal & exit /b 1
+
+for /f "tokens=1,2 delims=." %%a in ("!PY_VERSION!") do (
+    if %%a lss 3 endlocal & exit /b 1
+    if %%a equ 3 if %%b lss 12 endlocal & exit /b 1
+)
+endlocal & set "PYTHON_CMD=%PYTHON_CMD%"
+exit /b 0
+
+rem === ENSURE_PYTHON =========================================
+rem Checks Python 3.12+; auto-installs if missing
+rem Returns: errorlevel 0 on success, 1 on failure
+rem Sets: PYTHON_CMD, may modify PATH
+:ensure_python
+setlocal enabledelayedexpansion
+call :print_info "Checking Python installation..."
+
+call :require_python
+if not errorlevel 1 (
+for /f "tokens=2 delims= " %%v in ('!PYTHON_CMD! --version 2^>^&1') do set "PY_VERSION=%%v"
+call :print_ok "Python !PY_VERSION! detected"
+endlocal & set "PYTHON_CMD=%PYTHON_CMD%"
+exit /b 0
+)
+
+echo.
+call :print_info "Python 3.12+ is required but was not found."
+call :print_info "Downloading and installing Python automatically..."
+
+call :install_python
+if errorlevel 1 endlocal & exit /b 1
+
+call :require_python
+if errorlevel 1 (
+    call :print_err "Python installation could not be verified."
     endlocal & exit /b 1
 )
 
 for /f "tokens=2 delims= " %%v in ('!PYTHON_CMD! --version 2^>^&1') do set "PY_VERSION=%%v"
-if not defined PY_VERSION (
-    call :print_err "Could not determine Python version."
+call :print_ok "Python !PY_VERSION! detected"
+endlocal & set "PATH=%PATH%" & set "PYTHON_CMD=%PYTHON_CMD%"
+exit /b 0
+
+rem === INSTALL_PYTHON ========================================
+rem Downloads and silently installs Python 3.12+
+rem Returns: errorlevel 0 on success, 1 on failure
+rem Modifies: PATH (adds Python dirs)
+:install_python
+setlocal enabledelayedexpansion
+
+rem Determine latest Python 3.12+ version
+call :print_info "Determining latest Python version..."
+set "PY_LATEST_VER="
+
+for /f "delims=" %%v in ('powershell -NoProfile -Command ^
+    "try { $p = Invoke-WebRequest 'https://www.python.org/ftp/python/' -UseBasicParsing -TimeoutSec 10; " ^
+    "$l = $p.Links ^| Where-Object { $_.href -match '^3\.(1[2-9]|[2-9]\d)\.\d+/$' } ^| ForEach-Object { $_.href -replace '/$','' }; " ^
+    "$l ^| Sort-Object { [Version]$_ } -Descending ^| Select-Object -First 1 } catch { Write-Output '3.12.5' }"') do set "PY_LATEST_VER=%%v"
+
+if not defined PY_LATEST_VER set "PY_LATEST_VER=3.12.5"
+
+call :log "Latest Python version: !PY_LATEST_VER!"
+
+set "PYTHON_URL=https://www.python.org/ftp/python/!PY_LATEST_VER!/python-!PY_LATEST_VER!-amd64.exe"
+set "PYTHON_INSTALLER=%TEMP%\python-installer-!PY_LATEST_VER!.exe"
+
+call :log "Download URL: !PYTHON_URL!"
+call :print_info "Downloading Python !PY_LATEST_VER!..."
+
+powershell -NoProfile -Command "try { Invoke-WebRequest '!PYTHON_URL!' -OutFile '!PYTHON_INSTALLER!' -UseBasicParsing -TimeoutSec 120; exit 0 } catch { exit 1 }" >nul 2>&1
+if errorlevel 1 (
+    call :print_err "Failed to download Python installer."
+    call :log "  URL: !PYTHON_URL!"
+    if exist "!PYTHON_INSTALLER!" del /f /q "!PYTHON_INSTALLER!" >nul 2>&1
     endlocal & exit /b 1
 )
-call :log "Found Python version: !PY_VERSION!"
 
-for /f "tokens=1,2 delims=." %%a in ("!PY_VERSION!") do (
-    if %%a lss 3 (
-        call :print_err "Python 3.12+ required, found !PY_VERSION!"
-        endlocal & exit /b 1
-    )
-    if %%a equ 3 if %%b lss 12 (
-        call :print_err "Python 3.12+ required, found !PY_VERSION!"
-        endlocal & exit /b 1
+if not exist "!PYTHON_INSTALLER!" (
+    call :print_err "Downloaded file is missing."
+    endlocal & exit /b 1
+)
+
+call :print_info "Installing Python !PY_LATEST_VER!..."
+
+start /wait "" "!PYTHON_INSTALLER!" /quiet InstallAllUsers=1 PrependPath=1 Include_pip=1
+set "INSTALL_RESULT=!errorlevel!"
+
+if exist "!PYTHON_INSTALLER!" del /f /q "!PYTHON_INSTALLER!" >nul 2>&1
+
+if !INSTALL_RESULT! neq 0 (
+    call :print_err "Python installer failed (exit code: !INSTALL_RESULT!)."
+    endlocal & exit /b 1
+)
+
+call :print_info "Python !PY_LATEST_VER! installed. Verifying..."
+
+rem Add Python to PATH for the current session
+set "PYTHON_DIR="
+for %%v in (313 312) do (
+    if exist "%ProgramFiles%\Python%%v\" set "PYTHON_DIR=%ProgramFiles%\Python%%v\"
+    if exist "%ProgramFiles%\Python%%v\" goto :py_path_set
+)
+if not defined PYTHON_DIR (
+    for %%v in (313 312) do (
+        if exist "!AppData!\Programs\Python\Python%%v\" set "PYTHON_DIR=!AppData!\Programs\Python\Python%%v\"
+        if exist "!AppData!\Programs\Python\Python%%v\" goto :py_path_set
     )
 )
-call :print_ok "Python !PY_VERSION! detected"
-endlocal & set "PYTHON_CMD=%PYTHON_CMD%"
-exit /b 0
+:py_path_set
+if defined PYTHON_DIR (
+    set "PATH=!PYTHON_DIR!;!PYTHON_DIR!Scripts;!PATH!"
+    call :print_ok "Python !PY_LATEST_VER! installed"
+    endlocal & set "PATH=%PATH%"
+    exit /b 0
+)
+
+call :print_err "Could not locate Python after installation."
+endlocal & exit /b 1
 
 rem === REQUIRE_NODE ==========================================
 rem Returns: errorlevel 0 if Node.js found, 1 otherwise
-rem Sets: NODE_CMD to "node"
 :require_node
 setlocal enabledelayedexpansion
-call :print_info "Checking Node.js installation..."
-
 where node >nul 2>&1
-if errorlevel 1 (
-    call :print_err "Node.js is not installed."
-    call :log "  Visit https://nodejs.org/ to download the latest LTS version"
-    endlocal & exit /b 1
-)
-
+if errorlevel 1 endlocal & exit /b 1
 for /f "tokens=*" %%v in ('node --version') do set "NODE_VERSION=%%v"
-call :log "Found Node.js !NODE_VERSION!"
-call :print_ok "Node.js !NODE_VERSION! detected"
 endlocal & set "NODE_CMD=node"
 exit /b 0
 
 rem === REQUIRE_NPM ===========================================
 rem Returns: errorlevel 0 if npm found, 1 otherwise
-rem Sets: NPM_CMD to "npm"
 :require_npm
 setlocal enabledelayedexpansion
-call :print_info "Checking npm installation..."
-
 where npm >nul 2>&1
+if errorlevel 1 endlocal & exit /b 1
+for /f "tokens=*" %%v in ('npm --version') do set "NPM_VERSION=%%v"
+endlocal & set "NPM_CMD=npm"
+exit /b 0
+
+rem === ENSURE_NODE ===========================================
+rem Checks Node.js; auto-installs if missing
+rem Returns: errorlevel 0 on success, 1 on failure
+rem Sets: NODE_CMD, NPM_CMD, may modify PATH
+:ensure_node
+setlocal enabledelayedexpansion
+call :print_info "Checking Node.js installation..."
+
+call :require_node
+if not errorlevel 1 (
+    for /f "tokens=*" %%v in ('node --version') do set "NODE_VERSION=%%v"
+    call :print_ok "Node.js !NODE_VERSION! detected"
+    call :require_npm >nul 2>&1
+    if not errorlevel 1 (
+        for /f "tokens=*" %%v in ('npm --version') do set "NPM_VERSION=%%v"
+        call :print_ok "npm !NPM_VERSION! detected"
+    ) else (
+        call :print_warn "npm not found, will reinstall Node.js"
+        call :install_node
+        if errorlevel 1 endlocal & exit /b 1
+        call :require_node
+        if errorlevel 1 endlocal & exit /b 1
+        call :require_npm
+        if errorlevel 1 endlocal & exit /b 1
+    )
+    endlocal & set "PATH=%PATH%" & set "NODE_CMD=node"
+    exit /b 0
+)
+
+echo.
+call :print_info "Node.js is required but was not found."
+call :print_info "Downloading and installing Node.js LTS automatically..."
+
+call :install_node
+if errorlevel 1 endlocal & exit /b 1
+
+call :require_node
 if errorlevel 1 (
-    call :print_err "npm is not installed."
-    call :log "  npm should be included with Node.js."
-    call :log "  Reinstall Node.js from https://nodejs.org/"
+    call :print_err "Node.js installation could not be verified."
     endlocal & exit /b 1
 )
 
+for /f "tokens=*" %%v in ('node --version') do set "NODE_VERSION=%%v"
+call :print_ok "Node.js !NODE_VERSION! detected"
+
+call :require_npm
+if errorlevel 1 (
+    call :print_err "npm is not available after Node.js installation."
+    endlocal & exit /b 1
+)
 for /f "tokens=*" %%v in ('npm --version') do set "NPM_VERSION=%%v"
-call :log "Found npm !NPM_VERSION!"
 call :print_ok "npm !NPM_VERSION! detected"
-endlocal & set "NPM_CMD=npm"
+
+endlocal & set "PATH=%PATH%" & set "NODE_CMD=node" & set "NPM_CMD=npm"
 exit /b 0
+
+rem === INSTALL_NODE ==========================================
+rem Downloads and silently installs Node.js LTS
+rem Returns: errorlevel 0 on success, 1 on failure
+rem Modifies: PATH (adds Node.js dir)
+:install_node
+setlocal enabledelayedexpansion
+
+rem Determine latest Node.js LTS version
+call :print_info "Determining latest Node.js LTS version..."
+set "NODE_LATEST_VER="
+
+for /f "delims=" %%v in ('powershell -NoProfile -Command ^
+    "try { $d = Invoke-RestMethod 'https://nodejs.org/dist/index.json' -TimeoutSec 10; " ^
+    "$l = $d ^| Where-Object { $_.lts } ^| Select-Object -First 1; " ^
+    "$v = $l.version -replace '^v',''; if ($v) { Write-Output $v } else { Write-Output '20.17.0' } } catch { Write-Output '20.17.0' }"') do set "NODE_LATEST_VER=%%v"
+
+if not defined NODE_LATEST_VER set "NODE_LATEST_VER=20.17.0"
+
+call :log "Latest Node.js LTS version: !NODE_LATEST_VER!"
+
+set "NODE_URL=https://nodejs.org/dist/v!NODE_LATEST_VER!/node-v!NODE_LATEST_VER!-x64.msi"
+set "NODE_INSTALLER=%TEMP%\node-installer-!NODE_LATEST_VER!.msi"
+
+call :log "Download URL: !NODE_URL!"
+call :print_info "Downloading Node.js !NODE_LATEST_VER!..."
+
+powershell -NoProfile -Command "try { Invoke-WebRequest '!NODE_URL!' -OutFile '!NODE_INSTALLER!' -UseBasicParsing -TimeoutSec 120; exit 0 } catch { exit 1 }" >nul 2>&1
+if errorlevel 1 (
+    call :print_err "Failed to download Node.js installer."
+    call :log "  URL: !NODE_URL!"
+    if exist "!NODE_INSTALLER!" del /f /q "!NODE_INSTALLER!" >nul 2>&1
+    endlocal & exit /b 1
+)
+
+if not exist "!NODE_INSTALLER!" (
+    call :print_err "Downloaded file is missing."
+    endlocal & exit /b 1
+)
+
+call :print_info "Installing Node.js !NODE_LATEST_VER!..."
+
+start /wait "" "!NODE_INSTALLER!" /quiet
+set "INSTALL_RESULT=!errorlevel!"
+
+if exist "!NODE_INSTALLER!" del /f /q "!NODE_INSTALLER!" >nul 2>&1
+
+if !INSTALL_RESULT! neq 0 (
+    call :print_err "Node.js installer failed (exit code: !INSTALL_RESULT!)."
+    endlocal & exit /b 1
+)
+
+call :print_info "Node.js !NODE_LATEST_VER! installed. Verifying..."
+
+if exist "%ProgramFiles%\nodejs\node.exe" (
+    set "PATH=%ProgramFiles%\nodejs;%PATH%"
+    call :print_ok "Node.js !NODE_LATEST_VER! installed"
+    endlocal & set "PATH=%PATH%"
+    exit /b 0
+)
+
+if exist "%ProgramFiles(x86)%\nodejs\node.exe" (
+    set "PATH=%ProgramFiles(x86)%\nodejs;%PATH%"
+    call :print_ok "Node.js !NODE_LATEST_VER! installed"
+    endlocal & set "PATH=%PATH%"
+    exit /b 0
+)
+
+if exist "!AppData!\Programs\nodejs\node.exe" (
+    set "PATH=!AppData!\Programs\nodejs;!PATH!"
+    call :print_ok "Node.js !NODE_LATEST_VER! installed"
+    endlocal & set "PATH=%PATH%"
+    exit /b 0
+)
+
+call :print_err "Could not locate Node.js after installation."
+endlocal & exit /b 1
 
 rem === CHECK_PORT ============================================
 rem Returns: errorlevel 0 if port is in use, 1 if free
