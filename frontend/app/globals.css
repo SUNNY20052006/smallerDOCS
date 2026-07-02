@@ -1,0 +1,46 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Playfair+Display:wght@500;600;700&display=swap");
+@import "../styles/tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  letter-spacing: var(--letter-spacing, 0.01em);
+}
+
+.ProseMirror {
+  min-height: 70vh;
+}
+
+.ProseMirror table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.ProseMirror td,
+.ProseMirror th {
+  border: 1px solid var(--border);
+  min-width: 1em;
+  padding: 0.35rem 0.5rem;
+  vertical-align: top;
+}
+
+.clause-number {
+  font-weight: 700;
+  margin-right: 0.35rem;
+}
+
+.source-highlight {
+  outline: 2px solid var(--ring);
+  background: var(--accent);
+}

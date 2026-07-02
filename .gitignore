@@ -1,0 +1,69 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv
+venv/
+env/
+ENV/
+
+# Node
+node_modules/
+.next/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+*.egg
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OCR model caches
+**/paddleocr/
+**/paddlex/
+~/.paddleocr/
+~/.paddlex/
+
+# Temporary uploads
+*.tmp
+temp/
+
+# Exported documents
+*.docx
+*.html
+!backend/app/export/*.py
+
+# Logs
+*.log
+logs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# TypeScript
+*.tsbuildinfo
+
+# Docker
+.docker/
+
+# Project-specific
+backend/app/**/__pycache__/
+frontend/.next/
