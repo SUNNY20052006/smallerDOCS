@@ -40,6 +40,73 @@ Legal documents carry meaning in their structure — a clause number like "4.2(b
 
 smallerDOCS preserves these structural signals throughout the pipeline. The output is an editable document that faithfully represents what the original said and how it was organized — not a raw text transcript with formatting guesses pasted on top.
 
+## Requirements
+
+- **Windows 10** or **Windows 11**
+- **Internet connection** during the first installation (packages and OCR models must be downloaded)
+- **Python 3.12+**
+- **Node.js LTS**
+- **Git** (optional — only required if you plan to use `update.bat`)
+
+> If Python or Node.js are not installed, `install.bat` will detect the missing dependency and guide you through installing it before continuing.
+
+## Quick Start (Windows)
+
+The recommended way to install and run smallerDOCS on Windows is to use the included batch files.
+
+1. **Download the project** from GitHub and extract the ZIP file (or clone the repository).
+2. **Double-click `install.bat`**.
+3. The installer will automatically:
+   - Check for Python and Node.js
+   - Create the backend virtual environment
+   - Install backend Python dependencies
+   - Install frontend Node.js dependencies
+   - Build the frontend
+   - Download and initialize OCR models
+4. **Wait** for the installation to complete. The first installation may take several minutes as Python packages, Node packages, and OCR model weights must be downloaded.
+5. **Double-click `run.bat`** whenever you want to use the application.
+6. Your browser will automatically open the application.
+
+## Running the Application
+
+Double-click **`run.bat`** in the project root.
+
+The launcher will automatically:
+
+- Start the backend server
+- Wait until the OCR engine has finished loading (the `/health` endpoint reports `ocr_engine_loaded: true`)
+- Start the frontend server
+- Open `http://localhost:3000` in your default browser
+
+You do not need to open a terminal or run any commands manually.
+
+> **Note:** Close the "smallerDOCS Backend" and "smallerDOCS Frontend" windows to stop the application.
+
+## Keeping the Project Updated
+
+If you cloned the repository with Git, double-click **`update.bat`** to update your installation:
+
+- Pulls the latest source code from GitHub
+- Updates Python packages
+- Updates Node packages
+- Rebuilds the frontend
+
+If you downloaded a ZIP file instead of cloning, download the latest release from GitHub and re-run `install.bat`.
+
+## Uninstall
+
+Double-click **`uninstall.bat`** to remove the installed components.
+
+It will ask for confirmation, then remove:
+
+- Python virtual environment (`backend\.venv`)
+- Node modules (`frontend\node_modules`)
+- Build artifacts (`frontend\.next`)
+- Python cache files (`__pycache__` directories)
+- Installer logs
+
+Your project source code, README, documentation, and user documents are **not** deleted.
+
 ## Architecture
 
 ```
@@ -169,7 +236,9 @@ smallerDOCS/
 └── docker-compose.yml
 ```
 
-## Running Locally
+## Development Setup
+
+These instructions are for developers who want to run the project manually or contribute to the codebase.
 
 ### Prerequisites
 
