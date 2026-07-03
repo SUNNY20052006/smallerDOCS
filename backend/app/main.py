@@ -19,8 +19,11 @@ from app.pipeline.ocr.paddle_ocr_engine import ocr_engine
 async def lifespan(_: FastAPI):
     cleanup_task = asyncio.create_task(_cleanup_loop())
     try:
-        await asyncio.to_thread(ocr_engine.load)
-        await asyncio.to_thread(layout_engine.load)
+        await asyncio.wait_for(asyncio.to_thread(ocr_engine.load), timeout=120)
+    except Exception:
+        pass
+    try:
+        await asyncio.wait_for(asyncio.to_thread(layout_engine.load), timeout=120)
     except Exception:
         pass
     try:
