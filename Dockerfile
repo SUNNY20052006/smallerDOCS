@@ -1,14 +1,20 @@
 FROM python:3.11-slim
 
+RUN useradd -m -u 1000 user
 WORKDIR /app
+
 RUN apt-get update && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 libgomp1 libstdc++6 libatomic1 && rm -rf /var/lib/apt/lists/*
 
-COPY backend/requirements.txt .
+COPY --chown=user backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY backend/app ./app
+COPY --chown=user backend/app ./app
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=180s \
-  CMD python -c "import urllib.request; exit(0 if urllib.request.urlopen('http://localhost:${PORT:-7860}/api/v1/health').status == 200 else 1)"
+USER user
 
-CMD exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-7860}
+ENV HOME=/home/user \
+    PATH=/home/user/.local/bin:$PATH
+
+EXPOSE 7860
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
