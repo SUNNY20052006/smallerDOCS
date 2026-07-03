@@ -1,3 +1,12 @@
+---
+title: smallerDOCS
+emoji: 📄
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+---
+
 # smallerDOCS
 
 <p align="center">
