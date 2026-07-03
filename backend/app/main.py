@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
+
+logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,9 +23,13 @@ async def lifespan(_: FastAPI):
     cleanup_task = asyncio.create_task(_cleanup_loop())
     try:
         await asyncio.to_thread(ocr_engine.load)
+    except Exception as exc:
+        logger.exception("Failed to load OCR engine: %s", exc)
+
+    try:
         await asyncio.to_thread(layout_engine.load)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.exception("Failed to load layout engine: %s", exc)
     try:
         yield
     finally:

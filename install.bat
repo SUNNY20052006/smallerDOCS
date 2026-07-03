@@ -6,7 +6,7 @@ rem Self-elevate to administrator if not already running as admin
 net session >nul 2>&1
 if errorlevel 1 (
     echo Requesting administrator privileges...
-    powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -Verb RunAs -Wait"
+    powershell -NoProfile -Command "$p = Start-Process -FilePath '%~f0' -Verb RunAs -Wait -PassThru; exit $p.ExitCode"
     exit /b %errorlevel%
 )
 
@@ -50,7 +50,7 @@ call "%SCRIPT_DIR%scripts\common.bat" :print_info "Creating Python virtual envir
 if not exist "%SCRIPT_DIR%backend\.venv" (
     >>"%LOG_FILE%" 2>&1 (
         cd /d "%SCRIPT_DIR%backend"
-        "%PYTHON_CMD%" -m venv .venv
+        "!PYTHON_CMD!" -m venv .venv
     )
     if errorlevel 1 (
         call "%SCRIPT_DIR%scripts\common.bat" :print_err "Failed to create virtual environment."
@@ -117,14 +117,16 @@ call "%SCRIPT_DIR%scripts\common.bat" :print_ok "Frontend built successfully"
 rem === STEP 9: Download OCR models ==============================
 echo.
 call "%SCRIPT_DIR%scripts\common.bat" :log "--- OCR Models ---"
-call "%SCRIPT_DIR%scripts\common.bat" :print_info "Downloading OCR models (this may take a while)..."
+call "%SCRIPT_DIR%scripts\common.bat" :print_info "Downloading OCR models..."
+call "%SCRIPT_DIR%scripts\common.bat" :log "  This may take 2-5 minutes on a slow connection."
+call "%SCRIPT_DIR%scripts\common.bat" :log "  Models are downloaded once and cached. This is not a frozen installer."
 
 start "smallerDOCS_Install_Backend" /MIN /D "%SCRIPT_DIR%backend" "%SCRIPT_DIR%backend\.venv\Scripts\python.exe" -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
-call "%SCRIPT_DIR%scripts\common.bat" :wait_for_health "http://127.0.0.1:8000/health" 120
+call "%SCRIPT_DIR%scripts\common.bat" :wait_for_health "http://127.0.0.1:8000/health" 300
 set "health_result=!errorlevel!"
 
-taskkill /F /FI "WINDOWTITLE eq smallerDOCS_Install_Backend" >nul 2>&1
+call "%SCRIPT_DIR%scripts\common.bat" :kill_port 8000
 timeout /t 2 /nobreak >nul
 
 if !health_result! neq 0 (

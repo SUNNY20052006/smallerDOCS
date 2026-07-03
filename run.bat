@@ -57,21 +57,31 @@ rem === STEP 2: Check ports ======================================
 echo.
 call "%SCRIPT_DIR%scripts\common.bat" :print_info "Checking port availability..."
 
+call "%SCRIPT_DIR%scripts\common.bat" :log "  Checking port 8000..."
 call "%SCRIPT_DIR%scripts\common.bat" :check_port 8000
 if not errorlevel 1 (
-    call "%SCRIPT_DIR%scripts\common.bat" :print_err "Port 8000 is already in use."
+    call "%SCRIPT_DIR%scripts\common.bat" :print_err "Port 8000 is already in use (LISTENING)."
+    call "%SCRIPT_DIR%scripts\common.bat" :log "  Port 8000 is in LISTENING state."
+    >>"%LOG_FILE%" 2>&1 echo --- netstat for port 8000 ---
+    >>"%LOG_FILE%" 2>&1 netstat -ano | findstr ":8000"
     call "%SCRIPT_DIR%scripts\common.bat" :log "  Another application is using port 8000."
     call "%SCRIPT_DIR%scripts\common.bat" :log "  Close the other application or change its port configuration."
     goto :error_pause
 )
+call "%SCRIPT_DIR%scripts\common.bat" :log "  Port 8000 is free."
 
+call "%SCRIPT_DIR%scripts\common.bat" :log "  Checking port 3000..."
 call "%SCRIPT_DIR%scripts\common.bat" :check_port 3000
 if not errorlevel 1 (
-    call "%SCRIPT_DIR%scripts\common.bat" :print_err "Port 3000 is already in use."
+    call "%SCRIPT_DIR%scripts\common.bat" :print_err "Port 3000 is already in use (LISTENING)."
+    call "%SCRIPT_DIR%scripts\common.bat" :log "  Port 3000 is in LISTENING state."
+    >>"%LOG_FILE%" 2>&1 echo --- netstat for port 3000 ---
+    >>"%LOG_FILE%" 2>&1 netstat -ano | findstr ":3000"
     call "%SCRIPT_DIR%scripts\common.bat" :log "  Another application is using port 3000."
     call "%SCRIPT_DIR%scripts\common.bat" :log "  Close the other application or change its port configuration."
     goto :error_pause
 )
+call "%SCRIPT_DIR%scripts\common.bat" :log "  Port 3000 is free."
 
 call "%SCRIPT_DIR%scripts\common.bat" :print_ok "Ports 8000 and 3000 are available"
 
@@ -81,9 +91,9 @@ call "%SCRIPT_DIR%scripts\common.bat" :print_info "Starting backend server..."
 
 start "smallerDOCS Backend" /MIN /D "%SCRIPT_DIR%backend" "%SCRIPT_DIR%backend\.venv\Scripts\python.exe" -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
-call "%SCRIPT_DIR%scripts\common.bat" :wait_for_health "http://127.0.0.1:8000/health" 120
+call "%SCRIPT_DIR%scripts\common.bat" :wait_for_health "http://127.0.0.1:8000/health" 300
 if errorlevel 1 (
-    taskkill /F /FI "WINDOWTITLE eq smallerDOCS Backend" >nul 2>&1
+    call "%SCRIPT_DIR%scripts\common.bat" :kill_port 8000
     goto :error_pause
 )
 
