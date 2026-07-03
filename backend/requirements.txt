@@ -7,7 +7,6 @@ PyMuPDF==1.24.5
 Pillow==10.3.0
 opencv-python-headless==4.10.0.84
 numpy==1.26.4
-scipy==1.17.1
 paddlepaddle==3.0.0
 paddleocr==3.1.1
 paddlex[ocr]==3.1.1

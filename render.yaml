@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: smallerdocs-backend
+    env: docker
+    dockerfilePath: ./backend/Dockerfile
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: SMALLERDOCS_CORS_ORIGINS
+        value: '["https://smallerdocs-frontend.onrender.com"]'
+      - key: SMALLERDOCS_TEMP_ROOT
+        value: /tmp/smallerdocs
+      - key: SMALLERDOCS_PAGE_CONCURRENCY
+        value: '2'
+
+  - type: web
+    name: smallerdocs-frontend
+    env: docker
+    dockerfilePath: ./frontend/Dockerfile
+    envVars:
+      - key: NEXT_PUBLIC_API_BASE_URL
+        value: https://smallerdocs-backend.onrender.com/api/v1
